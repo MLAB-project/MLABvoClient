@@ -1,0 +1,5 @@
+setup.py
+dataUploader.egg-info/PKG-INFO
+dataUploader.egg-info/SOURCES.txt
+dataUploader.egg-info/dependency_links.txt
+dataUploader.egg-info/top_level.txt

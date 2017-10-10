@@ -1,0 +1,7 @@
+setup.py
+src/MLABvo/Bolidozor.py
+src/MLABvo/__init__.py
+src/MLABvo.egg-info/PKG-INFO
+src/MLABvo.egg-info/SOURCES.txt
+src/MLABvo.egg-info/dependency_links.txt
+src/MLABvo.egg-info/top_level.txt

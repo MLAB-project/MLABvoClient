@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: MLABvo
+Version: 1.0.1
+Summary: Software for getting data from MLAB virtual observatory servers
+Home-page: http://wiki.mlab.cz
+Author: Roman Dvorak
+Author-email: romandvorak@mlab.cz
+License: General Public License v3'
+Description: UNKNOWN
+Keywords: ssh,virtual-observatory,data,store,server,storage,VO
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Utilities
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Natural Language :: Czech
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5

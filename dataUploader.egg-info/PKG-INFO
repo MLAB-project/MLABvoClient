@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: dataUploader
+Version: 1.0.1
+Summary: Software for backup data to space.astro.cz server
+Home-page: http://wiki.bolidozor.cz
+Author: Roman Dvorak
+Author-email: roman-dvorak@email.cz
+License: General Public License v3'
+Description: UNKNOWN
+Keywords: ssh,backup,
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Utilities
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Natural Language :: Czech
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
