@@ -9,8 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as md
 from matplotlib import dates
 import mpltools
+import sys
 
 multibolid_id = 1573599
+if len(sys.argv) > 1: multibolid_id = sys.argv[1]
 bz = Bolidozor()
 bolids = bz.getMultibolid(id=multibolid_id)
 print('Pocet detekci ve skupine je',len(bolids.result))
@@ -59,7 +61,7 @@ for i, s in enumerate(selected):
         print(e)
 
 
-fig, axis = plt.subplots(1, count, sharex=True, sharey=True, figsize=(25, 15))
+fig, axis = plt.subplots(1, count, sharex=True, sharey=True, figsize=(20, 10))
 
 #fig.tight_layout()
 fig.suptitle("Multibolid %s (%s)" %(datetime.datetime.utcfromtimestamp(minimal_time).date(), multibolid_id))
@@ -88,4 +90,4 @@ for i, ax in enumerate(axis):
     ax.set_ylim( datetime.datetime.utcfromtimestamp(minimal_time), datetime.datetime.utcfromtimestamp(maximal_time))
     
     ax.set_title(bolid['namesimple'])
-plt.savefig('output.png', dpi=300)
+plt.savefig('multibolid_%s.png' %(multibolid_id), dpi=150, bbox_inches='tight')
