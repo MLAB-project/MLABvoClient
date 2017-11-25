@@ -89,6 +89,14 @@ class Bolidozor(MLABvo.MLABvo):
     def getMultibolid(self, id = None):
         
         multibolid = self._makeRequest('getMultibolid/', {'id':id})
+        print(multibolid)
+        return self.getResult(multibolid['job_id'])
+
+    def getMultibolids(self, date_from = None ):
+        if not date_from: date_from = (datetime.datetime.utcnow() - datetime.timedelta(days=10))
+        
+        multibolid = self._makeRequest('getMultibolids/', {'date_from': date_from})
+        print(multibolid)
         return self.getResult(multibolid['job_id'])
 
 
