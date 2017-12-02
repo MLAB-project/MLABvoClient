@@ -27,7 +27,7 @@ def proceed(multibolid_id):
         try:
             print(i,"==================================")
             print("snapshot:", bolid['url_file_js9'])
-            bolids.result[i]['time_calib']=timeCalibration(bolid['url_file_raw'], bolid['station_name'], debug = False)
+            bolids.result[i]['time_calib']=timeCalibration(bolid['url_file_raw'], bolid['station_name'], sigma=10, debug = False)
         except Exception as e:
             print("for bolids.result:", e)
 
@@ -66,7 +66,6 @@ def proceed(multibolid_id):
         except Exception as e:
             print(e)
 
-
     fig, axis = plt.subplots(1, count, sharex=True, sharey=True, figsize=(20, 10))
 
     #fig.tight_layout()
@@ -81,14 +80,14 @@ def proceed(multibolid_id):
         T_offset = datetime.timedelta(seconds = 10*time_offset.get(selected[i], 0))
         d1 = bolid['time_calib']['cor_file_beg']+T_offset
         fds1 = dates.date2num(d1) # converted
-        d2 = d1 + datetime.timedelta(seconds=hdu.header['NAXIS2']/49000.0/2)
+        d2 = d1 + datetime.timedelta(seconds=hdu.header['NAXIS2']/96000.0)
         fds2 = dates.date2num(d2)
         
-        arr = waterfall(flat_data[0::2] + 1j * flat_data[1::2], 49000, bins = 4096*4)
-        ax.imshow(arr,  interpolation='none', aspect='auto',  extent=[-24000, 24000, fds2, fds1])
+        arr = waterfall(flat_data[0::2] + 1j * flat_data[1::2], None, bins = 4096*3)
+        ax.imshow(arr,  interpolation='nearest', aspect='auto',  extent=[-48000, 48000, fds2, fds1])
         ax.grid(True)
         
-        ax.set_xlim(13000,13500)
+        ax.set_xlim(26000,27000)
         ax.yaxis_date()
         date_format = md.DateFormatter('%H:%M:%S')
         ax.yaxis.set_major_formatter(date_format)
@@ -96,6 +95,7 @@ def proceed(multibolid_id):
         ax.set_ylim( datetime.datetime.utcfromtimestamp(minimal_time), datetime.datetime.utcfromtimestamp(maximal_time))
         
         ax.set_title(bolid['namesimple'])
+    fig.subplots_adjust(wspace=0.04, left = 0.03, right=0.98, bottom=0.03, top=0.93)
     plt.savefig('multibolid_%s.png' %(multibolid_id), dpi=150, bbox_inches='tight')
 
 
@@ -111,10 +111,14 @@ def main():
             if not group['match_id'] in events:
                 events += [group['match_id']]
         print(events)
-        for  i, group in enumerate(events):
-            print("############################# event,",group, i+1, '/', len(events))
-            print(group)
-            proceed(group)
+        print(type(events))
+        for  i, group in enumerate(reversed(events)):
+            try:
+                print("############################# event,",group, i+1, '/', len(events))
+                print(group)
+                proceed(group)
+            except Exception as e:
+                print(e)
 
 if __name__ == '__main__':
     main()
