@@ -10,7 +10,7 @@ os.chdir(path.realpath(path.dirname(__file__)))
 
 setup(
     name                = "MLABvo",
-    version             = "0.0.3",
+    version             = "0.0.4",
     author =            "Roman Dvorak",
     author_email        = "romandvorak@mlab.cz",
     description         = ("Software for getting data from MLAB virtual observatory servers"),

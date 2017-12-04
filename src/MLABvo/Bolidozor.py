@@ -113,7 +113,7 @@ class Bolidozor(MLABvo.MLABvo):
 
 
 def samp2time(sample):
-    return sample/2*1/96000
+    return sample/96000
 
 def time2samp(time):
     return time*2*96000
@@ -150,7 +150,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
     clip_val = np.std(met_data)*sigma
     
     #file_length = hdulist[0].header['NAXIS2']*hdulist[0].header['CDELT2']/1000.0
-    file_length = samp2time(hdulist[0].header['NAXIS2']*2)
+    file_length = samp2time(hdulist[0].header['NAXIS2'])
     DATE_OBS = datetime.datetime.strptime(hdulist[0].header['DATE-OBS'], "%Y-%m-%dT%H:%M:%S" )
     DATE = datetime.datetime.strptime(hdulist[0].header['DATE'], "%Y-%m-%dT%H:%M:%S" )
     calibration_data['sys_file_beg'] = DATE-datetime.timedelta(seconds=file_length)
@@ -168,11 +168,11 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
     for i, point in enumerate(met_smooth):
         if point > clip_val:
             if not time_firstGPS:
-                 time_firstGPS = samp2time(i)
+                 time_firstGPS = samp2time(i/2)
                  if debug: 
                     plt.axvline(x=time2samp(time_firstGPS), color='red', lw=2)
                     plt.axvline(x=time2samp(time_firstGPS)+time2samp(10), color='green', lw=2)
-            ten_sec.append(samp2time(i))
+            ten_sec.append(samp2time(i/2))
     
     # Ohodnotit kvalitu dat,
         #  100 - Velmi dobre - jasna GPS znacka,
