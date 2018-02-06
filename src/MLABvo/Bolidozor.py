@@ -11,6 +11,7 @@ from matplotlib import dates
 import sys
 import math
 
+from scipy.signal import butter, lfilter
 
 class Bolidozor(MLABvo.MLABvo):
     def __init__(self, *args, **kwargs):
@@ -74,8 +75,13 @@ class Bolidozor(MLABvo.MLABvo):
         return self.getResult(snapshots['job_id'])
 
 
-    def getMeteor(self, station = None, date_from = None, date_to = datetime.datetime.now(), min_duration = None):
+    def getMeteor(self, station = None, date_from = None, date_to = datetime.datetime.now(), min_duration = None, id = None):
         #TODO: pokud je stanice text, tak ji vyhledat v db (pomoci getStation) a nastavit (self.setStation())
+
+        if isinstance(id, list):
+            meteor = self._makeRequest('getMeteor/', {'id': id})
+            print(meteor)
+            return self.getResult(meteor['job_id'])
         
         if station and not type(station) == int: 
             raise Exception("argument 'station' must be integer or None (not %s). It presents 'station_id'" %(type(station)))
@@ -83,8 +89,8 @@ class Bolidozor(MLABvo.MLABvo):
         if station == None:
             station = self.station_id
         
-        snapshots = self._makeRequest('getMeteor/', {'station_id':station, 'date_from':date_from, 'date_to': date_to, 'min_duration':min_duration})
-        return self.getResult(snapshots['job_id'])
+        meteor = self._makeRequest('getMeteor/', {'station_id':station, 'date_from':date_from, 'date_to': date_to, 'min_duration':min_duration})
+        return self.getResult(meteor['job_id'])
     
     def getMultibolid(self, id = None):
         
@@ -124,30 +130,39 @@ def smooth(y, box_pts):
     return y_smooth
 
 
-def getMeteorAround(station, time, distance = datetime.timedelta(minutes=600), debug = False):
+def pass_mask(low, high, fs, btype = 'band', order=2):
+    b, a = butter(order, [low/(0.5*fs), high/(0.5*fs)], btype=btype)
+    return b, a
+
+def pass_filter(data, low, high, fs, order=2):
+    b, a = pass_mask(low, high, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+
+def getMeteorAround(station, time, distance = 600*60, min_duration = 1, debug = False):
     try:
         b = Bolidozor(debug = debug)
         print(station, b.setStation(station))
-
-        meteors = b.getMeteor(date_from=time-distance, date_to=time+distance, min_duration=1).result
-        #if len(meteors) > 0:
-            #for met in meteors:
-            #    print(met['url_file_raw'], met['duration'], met['obstime'])
-    
+        meteors = b.getMeteor(date_from=time-datetime.timedelta(seconds = distance), date_to=time+datetime.timedelta(seconds = distance), min_duration=min_duration).result
+        
         return meteors
     except Exception as e:
         print('getMeteorAround', e)
         return False
 
 
-def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_around = True):
+def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_around = True, sigma_around = None, time_around = 600*60, smooth_distance = 15, low_cut = 10, high_cut = 500.0, filter_order = 3):
+    if not sigma_around: sigma_around = sigma
+
     calibration_data = {}
     calibration_data['samp_correction'] = 0
     # Stahnout a otevrit RAW fits meteoru
     hdulist = fits.open(raw_file, cache=True)
     met_data = np.abs(np.ravel(hdulist[0].data))
-    met_smooth = smooth(met_data, 25)
-    clip_val = np.std(met_data)*sigma
+    met_smooth = pass_filter(met_data, low_cut, high_cut, 96000, order=filter_order)
+    #met_smooth = smooth(met_data, smooth_distance)
+    clip_val = np.std(met_smooth)*sigma
     
     #file_length = hdulist[0].header['NAXIS2']*hdulist[0].header['CDELT2']/1000.0
     file_length = samp2time(hdulist[0].header['NAXIS2'])
@@ -156,7 +171,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
     calibration_data['sys_file_beg'] = DATE-datetime.timedelta(seconds=file_length)
     calibration_data['sys_file_end'] = DATE
     
-    if debug: plt.axhline(y=clip_val, color='red')
+    #if debug: plt.axhline(y=clip_val, color='red')
     max_val = np.max(met_data)
     time_firstGPS = None
     ten_sec = []
@@ -172,6 +187,9 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
                  if debug: 
                     plt.axvline(x=time2samp(time_firstGPS), color='red', lw=2)
                     plt.axvline(x=time2samp(time_firstGPS)+time2samp(10), color='green', lw=2)
+                    plt.axhline(y=clip_val, color='r', linestyle='-')
+
+                    pass
             ten_sec.append(samp2time(i/2))
     
     # Ohodnotit kvalitu dat,
@@ -197,14 +215,17 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
         #  tak se pokusi sehnat seznam okolnich meteoru,
         #  ve kterych najde GPS znacky
     
+        #
+        # browse_around je osetreni, aby nedachazelo k rekurzi
+        #
         if browse_around and station:
             time_offset = []
             if debug: print("hledam alternativni zdroj presneho casu")
-            around = getMeteorAround(station, datetime.datetime.strptime(hdulist[0].header['DATE'], "%Y-%m-%dT%H:%M:%S" ))
+            around = getMeteorAround(station, datetime.datetime.strptime(hdulist[0].header['DATE'], "%Y-%m-%dT%H:%M:%S" ), distance = time_around)
             if around:
                 print("Okolnich souboru:", len(around))
                 for meteor in around:
-                    meteor_data = timeCalibration(meteor['url_file_raw'], debug=False, browse_around = False)
+                    meteor_data = timeCalibration(meteor['url_file_raw'], debug=debug-1, browse_around = False, sigma=sigma_around)
                     if meteor_data['quality'] == 100:
 
                         time_offset.append([
@@ -217,18 +238,25 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
                     else:
                         print("-", end='')
                         
-                ## plt.plot(time_offset)
-                #plt.show()
-                #for ar in time_offset:
-                #    print("%f %f %f" %(ar[0], ar[1], ar[2]))
-                mean = np.mean(np.array(time_offset)[:,2])
-                print("mean: %f, std: %f" %(mean, np.std(np.array(time_offset)[:,2])))
-                calibration_data['samp_correction'] = mean
+
+                m, b = np.polyfit(np.array(time_offset)[:,0], np.array(time_offset)[:,2], 1)
+                offset = calibration_data['sys_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp()*m + b
+
+                if debug:
+                    plt.plot(np.array(time_offset)[:,0], np.array(time_offset)[:,2], '.')
+                    plt.plot(np.array(time_offset)[:,0], m*np.array(time_offset)[:,0] + b, '--')
+                    plt.plot(calibration_data['sys_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp(), offset, 'o')
+                    plt.show()
+                    print("popis krivky m, b:", m, b)
+                
+                calibration_data['samp_correction'] = offset
             else:
                 print("## Nelze najit zadne dalsi meteory v okoli")
                 calibration_data['method'] = 'Null'
                 calibration_data['quality'] = 25
-            
+        #
+        #
+        #   
                     
     if not time_firstGPS: time_firstGPS = 0
     correction = datetime.timedelta(seconds=correction)
@@ -248,11 +276,12 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
     if calibration_data['samp_correction'] == 0:
         calibration_data['samp_correction'] = calibration_data['CRVAL2']-calibration_data['cor_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp()
     else:
+        print("Neznama SAMPCORRECTION proto pouzivam z vypoctu", calibration_data['samp_correction'])
         calibration_data['cor_file_beg'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction'])
         calibration_data['cor_file_end'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction']-file_length)
         calibration_data['cor_1st_GPS'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction'])
     
-    if debug:
+    if debug or station == 30:
         #DATE_OBS = datetime.datetime.strptime(hdulist[0].header['DATE-OBS'], "%Y-%m-%dT%H:%M:%S" )
         print("Zpracovavam soubor:", raw_file)
         print('delka zaznamu          :', file_length, "s")
@@ -262,7 +291,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
         print('SysCas zacatku souboru :', calibration_data['sys_file_beg'])
         print('SysCas 1. GPS znacky   :', calibration_data['sys_1st_GPS'])
         print('Korekce systemoveho cas:', calibration_data['sys_correction'])
-        print('Korekce casu zvukovky  :', calibration_data['samp_correction'])
+        print('Korekce casu zvukovky  :', calibration_data['samp_correction'], "s")
         print('CorCas ukladani souboru:', calibration_data['cor_file_end'], "s")
         print('CorCas zacatku souboru :', calibration_data['cor_file_beg'])
         print('CorCas 1. GPS znacky   :', calibration_data['cor_1st_GPS'])
