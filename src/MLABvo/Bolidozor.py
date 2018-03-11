@@ -25,13 +25,13 @@ class Bolidozor(MLABvo.MLABvo):
         else:
             stations = self._makeRequest('getStation/', {'id':id, 'name':name})
         self.last_job = stations['job_id']
-        
+
         return self.getResult(stations['job_id'])
-    
+
     def setStation(self, station):
         if type(station) is list:
             station = station[0]
-        
+
         if type(station) is dict:
             self.station_id = station['id']
             self.station_name = station['namesimple']
@@ -59,21 +59,30 @@ class Bolidozor(MLABvo.MLABvo):
 
     def delStation(self):
         self.setStation(None)
-    
+
 
 
     def getSnapshot(self, station = None, date_from = None, date_to = datetime.datetime.now()):
         #TODO: pokud je stanice text, tak ji vyhledat v db (pomoci getStation) a nastavit (self.setStation())
-        
-        if station and not type(station) == int: 
+
+        if station and not type(station) == int:
             raise Exception("argument 'station' must be integer or None (not %s). It presents 'station_id'" %(type(station)))
-        
+
         if station == None:
             station = self.station_id
-        
+
         snapshots = self._makeRequest('getSnapshot/', {'station_id':station, 'date_from':date_from, 'date_to': date_to})
         return self.getResult(snapshots['job_id'])
 
+
+    def getMeteorByFiles(self, files = []):
+        #TODO: pokud je stanice text, tak ji vyhledat v db (pomoci getStation) a nastavit (self.setStation())
+
+        if isinstance(id, str):
+            files = [files]
+
+        meteor = self._makeRequest('getMeteor/', {'mode': 'files', 'files': files})
+        return self.getResult(meteor['job_id'])
 
     def getMeteor(self, station = None, date_from = None, date_to = datetime.datetime.now(), min_duration = None, id = None):
         #TODO: pokud je stanice text, tak ji vyhledat v db (pomoci getStation) a nastavit (self.setStation())
@@ -82,25 +91,25 @@ class Bolidozor(MLABvo.MLABvo):
             meteor = self._makeRequest('getMeteor/', {'id': id})
             print(meteor)
             return self.getResult(meteor['job_id'])
-        
-        if station and not type(station) == int: 
+
+        if station and not type(station) == int:
             raise Exception("argument 'station' must be integer or None (not %s). It presents 'station_id'" %(type(station)))
-        
+
         if station == None:
             station = self.station_id
-        
+
         meteor = self._makeRequest('getMeteor/', {'station_id':station, 'date_from':date_from, 'date_to': date_to, 'min_duration':min_duration})
         return self.getResult(meteor['job_id'])
-    
+
     def getMultibolid(self, id = None):
-        
+
         multibolid = self._makeRequest('getMultibolid/', {'id':id})
         print(multibolid)
         return self.getResult(multibolid['job_id'])
 
     def getMultibolids(self, date_from = None ):
         if not date_from: date_from = (datetime.datetime.utcnow() - datetime.timedelta(days=10))
-        
+
         multibolid = self._makeRequest('getMultibolids/', {'date_from': date_from})
         print(multibolid)
         return self.getResult(multibolid['job_id'])
@@ -145,7 +154,7 @@ def getMeteorAround(station, time, distance = 600*60, min_duration = 1, debug = 
         b = Bolidozor(debug = debug)
         print(station, b.setStation(station))
         meteors = b.getMeteor(date_from=time-datetime.timedelta(seconds = distance), date_to=time+datetime.timedelta(seconds = distance), min_duration=min_duration).result
-        
+
         return meteors
     except Exception as e:
         print('getMeteorAround', e)
@@ -163,40 +172,40 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
     met_smooth = pass_filter(met_data, low_cut, high_cut, 96000, order=filter_order)
     #met_smooth = smooth(met_data, smooth_distance)
     clip_val = np.std(met_smooth)*sigma
-    
+
     #file_length = hdulist[0].header['NAXIS2']*hdulist[0].header['CDELT2']/1000.0
     file_length = samp2time(hdulist[0].header['NAXIS2'])
     DATE_OBS = datetime.datetime.strptime(hdulist[0].header['DATE-OBS'], "%Y-%m-%dT%H:%M:%S" )
     DATE = datetime.datetime.strptime(hdulist[0].header['DATE'], "%Y-%m-%dT%H:%M:%S" )
     calibration_data['sys_file_beg'] = DATE-datetime.timedelta(seconds=file_length)
     calibration_data['sys_file_end'] = DATE
-    
+
     #if debug: plt.axhline(y=clip_val, color='red')
     max_val = np.max(met_data)
     time_firstGPS = None
     ten_sec = []
-        
+
     # Tato cast hleda v datech GPS znacky
     # Kdyz je najde, zapise je do seznamu `ten_sec`
     # Prvni GPS znacku to ulozi jako float do `time_firstGPS`
-    
+
     for i, point in enumerate(met_smooth):
         if point > clip_val:
             if not time_firstGPS:
                  time_firstGPS = samp2time(i/2)
-                 if debug: 
+                 if debug:
                     plt.axvline(x=time2samp(time_firstGPS), color='red', lw=2)
                     plt.axvline(x=time2samp(time_firstGPS)+time2samp(10), color='green', lw=2)
                     plt.axhline(y=clip_val, color='r', linestyle='-')
 
                     pass
             ten_sec.append(samp2time(i/2))
-    
+
     # Ohodnotit kvalitu dat,
         #  100 - Velmi dobre - jasna GPS znacka,
         #  50  - Znacka neni - najdeme ji v jinem souboru a zarovname podle vzorku zvukovky
         #  0  - Data jsou nekvalitni, nelze je pouzivat
-    
+
     if time_firstGPS:
         calibration_data['quality'] = 100
         calibration_data['method'] = 'GPS'
@@ -210,11 +219,11 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
         calibration_data['quality'] = 50
         calibration_data['method'] = 'Around GPS'
         correction = 0
-        
+
         # Kdyz je kvalita 50 (znacka neni v rozsahu zaznamu),
         #  tak se pokusi sehnat seznam okolnich meteoru,
         #  ve kterych najde GPS znacky
-    
+
         #
         # browse_around je osetreni, aby nedachazelo k rekurzi
         #
@@ -237,7 +246,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
                         print("+", end='')
                     else:
                         print("-", end='')
-                        
+
 
                 m, b = np.polyfit(np.array(time_offset)[:,0], np.array(time_offset)[:,2], 1)
                 offset = calibration_data['sys_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp()*m + b
@@ -248,7 +257,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
                     plt.plot(calibration_data['sys_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp(), offset, 'o')
                     plt.show()
                     print("popis krivky m, b:", m, b)
-                
+
                 calibration_data['samp_correction'] = offset
             else:
                 print("## Nelze najit zadne dalsi meteory v okoli")
@@ -256,22 +265,22 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
                 calibration_data['quality'] = 25
         #
         #
-        #   
-                    
+        #
+
     if not time_firstGPS: time_firstGPS = 0
     correction = datetime.timedelta(seconds=correction)
-    
-    
+
+
     calibration_data['CRVAL2'] = hdulist[0].header['CRVAL2']/1000.0
     calibration_data['DATE-OBS'] = DATE_OBS
-    
+
     calibration_data['sys_1st_GPS'] = DATE-datetime.timedelta(seconds=file_length-time_firstGPS)
     calibration_data['sys_error'] = DATE-datetime.timedelta(seconds=file_length-time_firstGPS)
-    
+
     calibration_data['cor_file_beg'] = DATE-datetime.timedelta(seconds=file_length)+correction
     calibration_data['cor_file_end'] = DATE+correction
     calibration_data['cor_1st_GPS'] = DATE-datetime.timedelta(seconds=file_length-time_firstGPS)+correction
-    
+
     calibration_data['sys_correction'] = correction
     if calibration_data['samp_correction'] == 0:
         calibration_data['samp_correction'] = calibration_data['CRVAL2']-calibration_data['cor_file_beg'].replace(tzinfo=datetime.timezone.utc).timestamp()
@@ -280,7 +289,7 @@ def timeCalibration(raw_file, station=None, sigma = 15, debug = True, browse_aro
         calibration_data['cor_file_beg'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction'])
         calibration_data['cor_file_end'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction']-file_length)
         calibration_data['cor_1st_GPS'] = datetime.datetime.utcfromtimestamp(calibration_data['CRVAL2'])-datetime.timedelta(seconds=calibration_data['samp_correction'])
-    
+
     if debug or station == 30:
         #DATE_OBS = datetime.datetime.strptime(hdulist[0].header['DATE-OBS'], "%Y-%m-%dT%H:%M:%S" )
         print("Zpracovavam soubor:", raw_file)
